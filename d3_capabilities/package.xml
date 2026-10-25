@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>d3_capabilities</name>
+  <version>0.1.0</version>
+  <description>Equivalentes de los 6 nodos naoqi_* (speech, perception, navigation, manipulation, miscellaneous, interface) para el Double 3.</description>
+  <maintainer email="111019208+STinjaca@users.noreply.github.com">Santi T</maintainer>
+  <license>Apache-2.0</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>d3_sdk_client</exec_depend>
+  <exec_depend>d3_media</exec_depend>
+  <exec_depend>d3_driver</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
+  <exec_depend>audio_common_msgs</exec_depend>
+  <exec_depend>naoqi_utilities_msgs</exec_depend>
+
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

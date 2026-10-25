@@ -1,0 +1,259 @@
+# Contrato ROS 2 de naoqi_bringup2_SinfonIA y su equivalente en el Double 3.
+#
+# Fuente: código de los repos naoqi_* (commits de julio de 2026, nombres relativos al namespace).
+# El original no trae este archivo: lo extrajimos del código porque sus READMEs están desactualizados
+# (muestran /naoqi_<pkg>_node/<srv>, pero el nombre real es /<ns>/<srv>).
+#
+# kind (visto desde el robot): pub = el robot publica, sub = el robot se suscribe,
+#                              srv = servicio que ofrece el robot, action = servidor de acción.
+# status en el D3:
+#   supported   -> implementado con hardware real del D3
+#   partial     -> implementado con limitaciones (ver notes)
+#   noop        -> responde éxito sin hacer nada (no aplica al D3, pero la secuencia de arranque lo llama)
+#   unsupported -> el servicio existe y responde success=false "unsupported on D3"; los topics no se crean
+#   planned     -> se implementará en una fase posterior; hoy no se crea
+# Regla: TODOS los servicios y acciones se registran siempre (contrato estable). Los topics solo si
+# status es supported/partial.
+
+namespace_default: d3
+original_namespaces: [nao, pepper]
+
+interfaces:
+  # ======================================================================= naoqi_driver -> d3_driver_node
+  - {name: cmd_vel, kind: sub, type: geometry_msgs/msg/Twist,
+     naoqi: {node: naoqi_driver, api: ALMotion.move},
+     d3: {node: d3_driver_node, impl: "navigate.drive (reenvío 5 Hz, watchdog 500 ms)", status: partial,
+          notes: "linear.y se ignora (base diferencial); m/s y rad/s se convierten a -1..1 con parámetros de calibración"}}
+  - {name: joint_trajectory, kind: sub, type: trajectory_msgs/msg/JointTrajectory,
+     naoqi: {node: naoqi_driver, api: ALMotion.setAngles},
+     d3: {node: d3_driver_node, impl: "base.pole.setTarget / tilt.target", status: partial,
+          notes: "joints pole_joint y head_tilt_joint; HeadPitch se acepta como alias del tilt; el resto se ignora"}}
+  - {name: goal_pose, kind: sub, type: geometry_msgs/msg/PoseStamped,
+     naoqi: {node: naoqi_driver, api: ALMotion.moveTo},
+     d3: {node: d3_driver_node, impl: "navigate.target (relative si frame base_footprint)", status: supported}}
+  - {name: speech, kind: sub, type: std_msgs/msg/String,
+     naoqi: {node: naoqi_driver, api: ALTextToSpeech.say},
+     d3: {node: d3_driver_node, impl: "TTS en el host + reproducción en d3_agent", status: supported}}
+  - {name: joint_states, kind: pub, type: sensor_msgs/msg/JointState,
+     naoqi: {node: naoqi_driver, api: ALMotion.getAngles},
+     d3: {node: d3_driver_node, impl: "DRBase.status.pole + DRMotor.position", status: supported}}
+  - {name: odom, kind: pub, type: nav_msgs/msg/Odometry,
+     naoqi: {node: naoqi_driver, api: ALMotion.getPosition},
+     d3: {node: d3_driver_node, impl: DRPose.pose, status: supported}}
+  - {name: /tf, kind: pub, type: tf2_msgs/msg/TFMessage, implicit: true,
+     naoqi: {node: naoqi_driver, api: "URDF + ALMotion"},
+     d3: {node: d3_driver_node, impl: "odom->base_footprint (DRPose) + robot_state_publisher", status: supported}}
+  - {name: robot_description, kind: pub, type: std_msgs/msg/String, implicit: true,
+     naoqi: {node: naoqi_driver, api: "URDF del paquete"},
+     d3: {node: robot_state_publisher, impl: d3_description/urdf/d3.urdf, status: supported}}
+  - {name: info, kind: pub, type: std_msgs/msg/String,
+     naoqi: {node: naoqi_driver, api: ALMemory RobotConfig},
+     d3: {node: d3_driver_node, impl: "DRSystem.systemInfo + DRAgent.info", status: supported}}
+  - {name: camera/front/image_raw, kind: pub, type: sensor_msgs/msg/Image,
+     naoqi: {node: naoqi_driver, api: ALVideoDevice kTopCamera},
+     d3: {node: d3_driver_node, impl: "camera.enable v4l2 -> /dev/video9 -> stream JPEG del agente", status: supported}}
+  - {name: camera/front/camera_info, kind: pub, type: sensor_msgs/msg/CameraInfo, implicit: true,
+     naoqi: {node: naoqi_driver, api: ALVideoDevice},
+     d3: {node: d3_driver_node, impl: "intrínsecos por parámetro (calibrar en el lab)", status: partial}}
+  - {name: camera/bottom/image_raw, kind: pub, type: sensor_msgs/msg/Image,
+     naoqi: {node: naoqi_driver, api: ALVideoDevice kBottomCamera},
+     d3: {node: "-", impl: "-", status: unsupported, notes: "el D3 no tiene cámara inferior equivalente"}}
+  - {name: camera/depth/image_raw, kind: pub, type: sensor_msgs/msg/Image,
+     naoqi: {node: naoqi_driver, api: ALVideoDevice kDepthCamera},
+     d3: {node: d3_driver_node, impl: "RealSense D430 frontal (depth.front)", status: planned,
+          notes: "usar la RealSense en crudo deja al D3 sin evasión de obstáculos"}}
+  - {name: camera/stereo/image_raw, kind: pub, type: sensor_msgs/msg/Image,
+     naoqi: {node: naoqi_driver, api: ALVideoDevice}, d3: {node: "-", impl: "-", status: unsupported}}
+  - {name: camera/ir/image_raw, kind: pub, type: sensor_msgs/msg/Image,
+     naoqi: {node: naoqi_driver, api: ALVideoDevice}, d3: {node: "-", impl: "-", status: unsupported}}
+  - {name: imu/torso, kind: pub, type: sensor_msgs/msg/Imu,
+     naoqi: {node: naoqi_driver, api: ALMemory InertialSensor},
+     d3: {node: d3_driver_node, impl: "DRIMU.imu (IMU de la cabeza)", status: partial,
+          notes: "solo orientación; sin velocidad angular ni aceleración"}}
+  - {name: imu/base, kind: pub, type: sensor_msgs/msg/Imu,
+     naoqi: {node: naoqi_driver, api: ALMemory InertialSensorBase}, d3: {node: "-", impl: "-", status: unsupported}}
+  - {name: laser, kind: pub, type: sensor_msgs/msg/LaserScan,
+     naoqi: {node: naoqi_driver, api: ALMemory laser},
+     d3: {node: "-", impl: "DRGridManager.robotGrid o depth.floor", status: planned}}
+  - {name: sonar/left, kind: pub, type: sensor_msgs/msg/Range,
+     naoqi: {node: naoqi_driver, api: ALSonar (NAO)},
+     d3: {node: d3_driver_node, impl: "DRUltrasonic.measurement sensor 0", status: supported}}
+  - {name: sonar/front_left, kind: pub, type: sensor_msgs/msg/Range,
+     naoqi: {node: "-", api: "- (nuevo en D3)"},
+     d3: {node: d3_driver_node, impl: "DRUltrasonic.measurement sensor 1", status: supported}}
+  - {name: sonar/front, kind: pub, type: sensor_msgs/msg/Range,
+     naoqi: {node: naoqi_driver, api: ALSonar (Pepper)},
+     d3: {node: d3_driver_node, impl: "DRUltrasonic.measurement sensor 2", status: supported}}
+  - {name: sonar/front_right, kind: pub, type: sensor_msgs/msg/Range,
+     naoqi: {node: "-", api: "- (nuevo en D3)"},
+     d3: {node: d3_driver_node, impl: "DRUltrasonic.measurement sensor 3", status: supported}}
+  - {name: sonar/right, kind: pub, type: sensor_msgs/msg/Range,
+     naoqi: {node: naoqi_driver, api: ALSonar (NAO)},
+     d3: {node: d3_driver_node, impl: "DRUltrasonic.measurement sensor 4", status: supported}}
+  - {name: sonar/back, kind: pub, type: sensor_msgs/msg/Range,
+     naoqi: {node: naoqi_driver, api: ALSonar (Pepper)}, d3: {node: "-", impl: "-", status: unsupported}}
+  - {name: mic, kind: pub, type: audio_common_msgs/msg/AudioData,
+     naoqi: {node: naoqi_driver, api: ALAudioDevice},
+     d3: {node: d3_driver_node, impl: "arecord en d3_agent -> PCM16 16 kHz mono", status: supported}}
+  - {name: mic_stamped, kind: pub, type: audio_common_msgs/msg/AudioDataStamped,
+     naoqi: {node: naoqi_driver, api: ALAudioDevice},
+     d3: {node: d3_driver_node, impl: "igual que mic, con header", status: supported}}
+  - {name: mic_info, kind: pub, type: audio_common_msgs/msg/AudioInfo,
+     naoqi: {node: naoqi_driver, api: config},
+     d3: {node: d3_driver_node, impl: "transient_local, 16 kHz / 1 canal / S16LE", status: supported}}
+  - {name: bumper, kind: pub, type: sensor_msgs/msg/Joy,
+     naoqi: {node: naoqi_driver, api: ALMemory BumperPressed}, d3: {node: "-", impl: "-", status: unsupported}}
+  - {name: hand_touch, kind: pub, type: sensor_msgs/msg/Joy,
+     naoqi: {node: naoqi_driver, api: ALMemory HandTouched}, d3: {node: "-", impl: "-", status: unsupported}}
+  - {name: head_touch, kind: pub, type: sensor_msgs/msg/Joy,
+     naoqi: {node: naoqi_driver, api: ALMemory TactilTouched}, d3: {node: "-", impl: "-", status: unsupported}}
+  - {name: /diagnostics, kind: pub, type: diagnostic_msgs/msg/DiagnosticArray,
+     naoqi: {node: naoqi_driver, api: "ALMemory (temperaturas, batería)"},
+     d3: {node: d3_driver_node, impl: "DRSystem.tegrastats + DRBase.status", status: planned,
+          notes: "desactivado por defecto también en el bringup original"}}
+  - {name: /rosout, kind: pub, type: rcl_interfaces/msg/Log,
+     naoqi: {node: naoqi_driver, api: "log de NAOqi"},
+     d3: {node: "-", impl: "-", status: unsupported, notes: "desactivado por defecto en el original; los nodos D3 usan /rosout estándar"}}
+  - {name: get_robot_config, kind: srv, type: naoqi_bridge_msgs/srv/GetRobotInfo,
+     naoqi: {node: naoqi_driver, api: ALMotion.getRobotConfig},
+     d3: {node: d3_driver_node, impl: "valores fijos del D3 (0 brazos/piernas/manos)", status: partial,
+          notes: "RobotInfo.type no tiene enum para D3; se reporta model=Double3"}}
+  - {name: set_language, kind: srv, type: naoqi_bridge_msgs/srv/SetString,
+     naoqi: {node: naoqi_driver, api: ALTextToSpeech.setLanguage},
+     d3: {node: d3_driver_node, impl: "idioma de TTS/ASR del host", status: supported}}
+  - {name: get_language, kind: srv, type: naoqi_bridge_msgs/srv/GetString,
+     naoqi: {node: naoqi_driver, api: ALTextToSpeech.getLanguage},
+     d3: {node: d3_driver_node, impl: "idioma de TTS/ASR del host", status: supported}}
+  - {name: listen, kind: action, type: naoqi_bridge_msgs/action/Listen,
+     naoqi: {node: naoqi_driver, api: "ALDialog / ALSpeechRecognition"},
+     d3: {node: d3_driver_node, impl: "ASR Vosk en el host sobre el stream mic", status: partial,
+          notes: "requiere modelo Vosk descargado; sin modelo responde resultado vacío"}}
+
+  # ======================================================================= naoqi_miscellaneous_node
+  - {name: set_autonomous_state, kind: srv, type: std_srvs/srv/SetBool,
+     naoqi: {node: naoqi_miscellaneous_node, api: ALAutonomousLife},
+     d3: {node: d3_miscellaneous_node, impl: "-", status: noop}}
+  - {name: toggle_awareness, kind: srv, type: std_srvs/srv/SetBool,
+     naoqi: {node: naoqi_miscellaneous_node, api: ALBasicAwareness},
+     d3: {node: d3_miscellaneous_node, impl: "-", status: noop}}
+  - {name: toggle_blinking, kind: srv, type: std_srvs/srv/SetBool,
+     naoqi: {node: naoqi_miscellaneous_node, api: ALAutonomousBlinking},
+     d3: {node: d3_miscellaneous_node, impl: "-", status: noop}}
+  - {name: battery_percentage, kind: pub, type: std_msgs/msg/Float32,
+     naoqi: {node: naoqi_miscellaneous_node, api: ALBattery.getBatteryCharge},
+     d3: {node: d3_miscellaneous_node, impl: DRBase.status.battery, status: supported}}
+  - {name: set_leds, kind: sub, type: naoqi_utilities_msgs/msg/LedParameters,
+     naoqi: {node: naoqi_miscellaneous_node, api: ALLeds.fadeRGB},
+     d3: {node: d3_miscellaneous_node, impl: "se registra y se ignora con un aviso", status: partial,
+          notes: "el D3 no tiene LEDs controlables; la suscripción existe para no romper clientes"}}
+
+  # ======================================================================= naoqi_manipulation_node
+  - {name: go_to_posture, kind: srv, type: naoqi_utilities_msgs/srv/GoToPosture,
+     naoqi: {node: naoqi_manipulation_node, api: ALRobotPosture.goToPosture},
+     d3: {node: d3_manipulation_node, impl: "Stand: pole.stand + kickstand.retract; Sit/Rest: pole.sit + kickstand.deploy",
+          status: partial}}
+  - {name: play_animation, kind: srv, type: naoqi_utilities_msgs/srv/PlayAnimation,
+     naoqi: {node: naoqi_manipulation_node, api: ALBehaviorManager},
+     d3: {node: d3_manipulation_node, impl: "secuencias de pole/tilt/giro (nod, shake, greet...)", status: partial}}
+  - {name: set_tangential_security_distance, kind: srv, type: naoqi_utilities_msgs/srv/SetSecurityDistance,
+     naoqi: {node: naoqi_manipulation_node, api: ALMotion.setTangentialSecurityDistance},
+     d3: {node: d3_manipulation_node, impl: "navigate.obstacleAvoidance.setLevel (<0.1 m -> 0)", status: partial}}
+  - {name: set_orthogonal_security_distance, kind: srv, type: naoqi_utilities_msgs/srv/SetSecurityDistance,
+     naoqi: {node: naoqi_manipulation_node, api: ALMotion.setOrthogonalSecurityDistance},
+     d3: {node: d3_manipulation_node, impl: "navigate.obstacleAvoidance.setLevel", status: partial}}
+  - {name: enable_default_security, kind: srv, type: std_srvs/srv/Trigger,
+     naoqi: {node: naoqi_manipulation_node, api: ALMotion},
+     d3: {node: d3_manipulation_node, impl: "navigate.obstacleAvoidance.setLevel 2", status: supported}}
+  - {name: set_stiffnesses, kind: srv, type: naoqi_utilities_msgs/srv/SetStiffnesses,
+     naoqi: {node: naoqi_manipulation_node, api: ALMotion.setStiffnesses}, d3: {node: d3_manipulation_node, impl: "-", status: unsupported}}
+  - {name: toggle_smart_stiffness, kind: srv, type: std_srvs/srv/SetBool,
+     naoqi: {node: naoqi_manipulation_node, api: ALMotion.setSmartStiffnessEnabled}, d3: {node: d3_manipulation_node, impl: "-", status: unsupported}}
+  - {name: set_open_close_hand, kind: srv, type: naoqi_utilities_msgs/srv/SetOpenCloseHand,
+     naoqi: {node: naoqi_manipulation_node, api: ALMotion.setAngles}, d3: {node: d3_manipulation_node, impl: "-", status: unsupported}}
+  - {name: toggle_breathing, kind: srv, type: naoqi_utilities_msgs/srv/SetBreathing,
+     naoqi: {node: naoqi_manipulation_node, api: ALMotion.setBreathEnabled}, d3: {node: d3_manipulation_node, impl: "-", status: unsupported}}
+  - {name: set_move_arms_enabled, kind: srv, type: naoqi_utilities_msgs/srv/SetMoveArmsEnabled,
+     naoqi: {node: naoqi_manipulation_node, api: ALMotion.setMoveArmsEnabled}, d3: {node: d3_manipulation_node, impl: "-", status: unsupported}}
+  - {name: toggle_arms_collision_protection, kind: srv, type: std_srvs/srv/SetBool,
+     naoqi: {node: naoqi_manipulation_node, api: ALMotion.setCollisionProtectionEnabled}, d3: {node: d3_manipulation_node, impl: "-", status: unsupported}}
+
+  # ======================================================================= naoqi_navigation_node
+  - {name: move_to, kind: srv, type: naoqi_utilities_msgs/srv/MoveTo,
+     naoqi: {node: naoqi_navigation_node, api: ALMotion.moveTo},
+     d3: {node: d3_navigation_node, impl: "navigate.target relative + espera DRNavigateModule.arrive", status: supported}}
+  - {name: navigate_to, kind: srv, type: naoqi_utilities_msgs/srv/MoveTo,
+     naoqi: {node: naoqi_navigation_node, api: ALNavigation.navigateTo},
+     d3: {node: d3_navigation_node, impl: "navigate.target absoluto en el frame de DRPose (odom)", status: partial,
+          notes: "sin mapa: el frame es la odometría desde el arranque (pose.resetOrigin)"}}
+  - {name: start_exploring, kind: srv, type: naoqi_utilities_msgs/srv/Explore,
+     naoqi: {node: naoqi_navigation_node, api: ALNavigation.explore}, d3: {node: d3_navigation_node, impl: "-", status: unsupported}}
+  - {name: stop_exploring, kind: srv, type: std_srvs/srv/Trigger,
+     naoqi: {node: naoqi_navigation_node, api: ALNavigation.stopExploration}, d3: {node: d3_navigation_node, impl: "-", status: unsupported}}
+
+  # ======================================================================= naoqi_perception_node
+  - {name: set_tracker_mode, kind: srv, type: naoqi_utilities_msgs/srv/SetTrackerMode,
+     naoqi: {node: naoqi_perception_node, api: "ALTracker / ALBasicAwareness"},
+     d3: {node: d3_perception_node, impl: "stop: soportado; start_*: seguimiento de rostro en el host", status: partial,
+          notes: "fase posterior: detector de rostros sobre camera/front + base.turnBy / tilt.target"}}
+  - {name: point_at, kind: srv, type: naoqi_utilities_msgs/srv/PointAt,
+     naoqi: {node: naoqi_perception_node, api: ALTracker.pointAt}, d3: {node: d3_perception_node, impl: "-", status: unsupported}}
+
+  # ======================================================================= naoqi_speech_node
+  - {name: say, kind: srv, type: naoqi_utilities_msgs/srv/Say,
+     naoqi: {node: naoqi_speech_node, api: "ALTextToSpeech / ALAnimatedSpeech"},
+     d3: {node: d3_speech_node, impl: "TTS en el host (espeak-ng; Piper opcional) -> WAV -> aplay en el D3", status: partial,
+          notes: "animated se ignora; asynchronous se respeta"}}
+  - {name: shut_up, kind: srv, type: std_srvs/srv/Trigger,
+     naoqi: {node: naoqi_speech_node, api: ALTextToSpeech.stopAll},
+     d3: {node: d3_speech_node, impl: agent.audio.stop, status: supported}}
+  - {name: set_volume, kind: srv, type: naoqi_utilities_msgs/srv/SetVolume,
+     naoqi: {node: naoqi_speech_node, api: ALAudioDevice.setOutputVolume},
+     d3: {node: d3_speech_node, impl: speaker.setVolume, status: supported}}
+  - {name: get_volume, kind: srv, type: naoqi_utilities_msgs/srv/GetVolume,
+     naoqi: {node: naoqi_speech_node, api: ALAudioDevice.getOutputVolume},
+     d3: {node: d3_speech_node, impl: "speaker.requestVolume -> DRSpeaker.volume", status: supported}}
+  - {name: configure_speech, kind: srv, type: naoqi_utilities_msgs/srv/ConfigureSpeech,
+     naoqi: {node: naoqi_speech_node, api: ALSpeechRecognition},
+     d3: {node: d3_speech_node, impl: "vocabulario/idioma del ASR Vosk en el host", status: partial}}
+  - {name: play_sound, kind: srv, type: naoqi_utilities_msgs/srv/PlaySound,
+     naoqi: {node: naoqi_speech_node, api: ALAudioPlayer.playFile},
+     d3: {node: d3_speech_node, impl: "archivo WAV del HOST subido a d3_agent", status: partial,
+          notes: "en Pepper la ruta era del robot; aquí es del contenedor del host"}}
+  - {name: play_web_stream, kind: srv, type: naoqi_utilities_msgs/srv/PlayWebStream,
+     naoqi: {node: naoqi_speech_node, api: ALAudioPlayer.playWebStream},
+     d3: {node: d3_speech_node, impl: "playbin en d3_agent", status: supported}}
+  - {name: stop_all_sounds, kind: srv, type: std_srvs/srv/Trigger,
+     naoqi: {node: naoqi_speech_node, api: ALAudioPlayer.stopAll},
+     d3: {node: d3_speech_node, impl: agent.audio.stop, status: supported}}
+  - {name: word_recognized, kind: pub, type: naoqi_utilities_msgs/msg/WordConfidence,
+     naoqi: {node: naoqi_speech_node, api: ALMemory WordRecognized},
+     d3: {node: d3_speech_node, impl: "Vosk con gramática del vocabulario", status: partial}}
+
+  # ======================================================================= naoqi_interface_node (tablet -> pantalla D3)
+  - {name: show_image, kind: srv, type: naoqi_utilities_msgs/srv/SendURL,
+     naoqi: {node: naoqi_interface_node, api: ALTabletService.showImage},
+     d3: {node: d3_interface_node, impl: gui.accessoryWebView.open, status: supported}}
+  - {name: show_webview, kind: srv, type: naoqi_utilities_msgs/srv/SendURL,
+     naoqi: {node: naoqi_interface_node, api: ALTabletService.showWebview},
+     d3: {node: d3_interface_node, impl: gui.accessoryWebView.open, status: supported}}
+  - {name: play_video, kind: srv, type: naoqi_utilities_msgs/srv/SendURL,
+     naoqi: {node: naoqi_interface_node, api: ALTabletService.playVideo},
+     d3: {node: d3_interface_node, impl: gui.accessoryWebView.open, status: supported}}
+  - {name: hide_tablet, kind: srv, type: std_srvs/srv/Trigger,
+     naoqi: {node: naoqi_interface_node, api: ALTabletService.hide},
+     d3: {node: d3_interface_node, impl: gui.accessoryWebView.close, status: supported}}
+  - {name: show_topic_stream, kind: srv, type: naoqi_utilities_msgs/srv/SendURL,
+     naoqi: {node: naoqi_interface_node, api: "ALTabletService.showWebview + web_video_server"},
+     d3: {node: d3_interface_node, impl: "accessoryWebView -> http://HOST_IP:8080/stream?topic=", status: supported}}
+  - {name: show_text, kind: srv, type: naoqi_utilities_msgs/srv/ShowText,
+     naoqi: {node: naoqi_interface_node, api: "ALTabletService show_words.html"},
+     d3: {node: d3_interface_node, impl: "página text.html servida por d3_agent", status: supported}}
+  - {name: get_input, kind: srv, type: naoqi_utilities_msgs/srv/GetInput,
+     naoqi: {node: naoqi_interface_node, api: "ALTabletService input_*.html + onJSEvent"},
+     d3: {node: d3_interface_node, impl: "página input.html -> POST a d3_agent -> DRAgent.input", status: supported}}
+  - {name: take_and_show_picture, kind: srv, type: std_srvs/srv/Trigger,
+     naoqi: {node: naoqi_interface_node, api: "ALPhotoCapture + ALTabletService"},
+     d3: {node: d3_interface_node, impl: "último frame de camera/front -> página en pantalla", status: partial}}
+  - {name: toggle_app_launcher, kind: srv, type: std_srvs/srv/SetBool,
+     naoqi: {node: naoqi_interface_node, api: "ALServiceManager / AppLauncher"},
+     d3: {node: d3_interface_node, impl: "gui.show / gui.hide", status: partial}}

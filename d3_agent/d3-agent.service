@@ -1,0 +1,15 @@
+[Unit]
+Description=d3_agent - puente TCP entre ROS 2 y la API del Double 3
+After=network-online.target d3.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=double
+# El token vive en /etc/d3_agent/token (permisos 600). Nunca en este archivo.
+ExecStart=/usr/bin/python3 /opt/d3_agent/d3_agent.py --profile robot --token-file /etc/d3_agent/token
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

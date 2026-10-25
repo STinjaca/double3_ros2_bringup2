@@ -1,0 +1,54 @@
+# --- Secretos y configuración local (NUNCA subir) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+secrets/
+
+# --- Grabaciones crudas del robot (pueden tener red, ubicación y seriales) ---
+recordings/
+*.raw.jsonl
+
+# --- Media y datos con personas (Ley 1581 de 2012) ---
+*.bag
+*.mcap
+*.db3
+*.wav
+*.mp3
+*.ogg
+*.mp4
+*.avi
+*.mkv
+*.jpg
+*.jpeg
+*.png
+*.gif
+!docs/img/**
+
+# --- Modelos de IA descargados ---
+models/
+*.onnx
+*.onnx.json
+
+# --- Build de colcon ---
+build/
+install/
+log/
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.venv/
+
+# --- Salidas generadas ---
+tools/codegraph/out/
+
+# --- Editor / SO ---
+.DS_Store
+.vscode/
+.idea/

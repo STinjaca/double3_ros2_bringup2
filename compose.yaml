@@ -1,0 +1,38 @@
+# Base (macOS con Docker Desktop, y también Linux). En Linux el Makefile añade compose.linux.yaml.
+# Basado en el docker-compose.yml del workspace NAOqi del laboratorio, sin `platform: linux/amd64`.
+name: double3
+services:
+  ros:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: double3-ros2:jazzy
+    container_name: double3_ros2
+    env_file:
+      - path: .env          # D3_IP, D3_TOKEN, HOST_IP, ROS_DOMAIN_ID (no se sube al repo)
+        required: false
+    environment:
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-42}
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+      # En Docker Desktop DDS no sale del contenedor: todo lo ROS vive aquí y lo externo entra por
+      # rosbridge (9090) o Foxglove (8765).
+      - ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
+    volumes:
+      - .:/workspace/ws/src/double3_ros2_bringup2
+      - ws_build:/workspace/ws/build
+      - ws_install:/workspace/ws/install
+      - ws_log:/workspace/ws/log
+      - ./models:/models          # modelos Vosk/Piper descargados (ignorados por git)
+      - ./sounds:/workspace/sounds  # WAVs para play_sound (ignorados por git)
+    ports:
+      # Puerto del host configurable en .env si ya está ocupado (p. ej. ROSBRIDGE_HOST_PORT=9091)
+      - "${VIDEO_HOST_PORT:-8080}:8080"       # web_video_server (también lo usa la pantalla del D3 vía HOST_IP)
+      - "${ROSBRIDGE_HOST_PORT:-9090}:9090"   # rosbridge_server (web remote controller)
+      - "${FOXGLOVE_HOST_PORT:-8765}:8765"    # foxglove_bridge (visualización en el Mac)
+    stdin_open: true
+    tty: true
+
+volumes:
+  ws_build:
+  ws_install:
+  ws_log:

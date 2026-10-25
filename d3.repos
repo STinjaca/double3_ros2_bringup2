@@ -1,0 +1,17 @@
+# Dependencias externas (solo interfaces de mensajes y el demo de conformidad).
+# No se copia código de estos repos a este proyecto: se importan con vcs en la imagen Docker.
+#   vcs import deps/src < d3.repos
+repositories:
+  naoqi_utilities_msgs:
+    type: git
+    url: https://github.com/SinfonIAUniandes/naoqi_utilities_msgs.git
+    version: main
+  naoqi_bridge_msgs:
+    type: git
+    url: https://github.com/ros-naoqi/naoqi_bridge_msgs2.git
+    version: main
+  # Solo para ejecutar naoqi_capabilities_demo.py como prueba de conformidad (no se compila).
+  naoqi_bringup2_sinfonIA:
+    type: git
+    url: https://github.com/SinfonIAUniandes/naoqi_bringup2_SinfonIA.git
+    version: main

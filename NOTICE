@@ -1,0 +1,21 @@
+double3_ros2_bringup2
+Copyright 2026 Santi T (Universidad de los Andes, laboratorio COLIVRI - monitoría de investigación)
+
+Licenciado bajo Apache License 2.0 (ver LICENSE).
+
+Este proyecto NO es un producto oficial de la Universidad de los Andes, del grupo SinfonIA
+ni de Double Robotics. "Double 3" se usa solo de forma descriptiva para identificar el robot.
+
+Créditos y referencias
+----------------------
+- naoqi_bringup2_SinfonIA y repos naoqi_* de SinfonIA Uniandes
+  https://github.com/SinfonIAUniandes/naoqi_bringup2_SinfonIA
+  El contrato ROS 2 (nombres y tipos de topics, servicios y acción), los argumentos del launch, la
+  forma del YAML y la secuencia de arranque se replican para mantener la compatibilidad.
+  No se copia su código. naoqi_bringup2_SinfonIA está bajo Apache-2.0.
+  Los repos naoqi_utilities_msgs y naoqi_bridge_msgs2 se usan como dependencias (d3.repos), sin copiarlos.
+
+- Double 3 Developer SDK (doublerobotics/d3-sdk)
+  https://github.com/doublerobotics/d3-sdk
+  Se usa solo como referencia del protocolo público (nombres de comandos y eventos) para interoperar.
+  El repositorio del SDK no declara licencia, por lo que no se copia su código ni su documentación.

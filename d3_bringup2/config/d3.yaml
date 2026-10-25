@@ -1,0 +1,95 @@
+# Configuración del bringup del Double 3. Misma forma que naoqi_driver_{nao,pepper}.yaml:
+# un bloque `bringup:` para el launch y bloques `<nodo>: ros__parameters:` para cada nodo.
+#
+# NUNCA pongas aquí IPs reales del laboratorio ni el token: usa .env (D3_IP, D3_TOKEN, HOST_IP)
+# o argumentos del launch (robot_ip:=...). Este archivo es público.
+
+bringup:
+  namespace: "d3"
+  driver:
+    command_topics:
+      cmd_vel_topic: cmd_vel
+      joint_trajectory_topic: joint_trajectory
+      goal_pose_topic: goal_pose
+      speech_topic: speech
+  # Secuencia de arranque (equivalente a la del bringup de Pepper)
+  startup:
+    enabled: true
+    delay_sec: 5.0
+    posture: "Stand"          # Stand: sube el pole y retrae el kickstand (el robot queda balanceándose)
+    hide_double_gui: false    # true = toggle_app_launcher false (oculta la interfaz propia de Double)
+    splash_url: "http://127.0.0.1:8081/index.html"
+
+d3_driver_node:
+  ros__parameters:
+    robot_ip: 127.0.0.1       # se sobrescribe con robot_ip:=, nao_ip:= o la variable D3_IP
+    robot_port: 22022
+    # Movimiento (calibrar en el lab comparando odom con una distancia medida)
+    max_linear_speed: 0.5
+    max_angular_speed: 1.6
+    invert_turn: false
+    drive_period: 0.2
+    cmd_vel_timeout: 0.0      # 0 = velocidad retenida como ALMotion.move; 0.5 recomendado para teleop
+    auto_retract_kickstand: true
+    # Frames
+    odom_frame: odom
+    base_frame: base_footprint
+    camera_frame: camera_front_optical_frame
+    imu_frame: head_link
+    publish_tf: true
+    # Cinemática
+    pole_travel_m: 0.33
+    tilt_up_rad: -0.35
+    tilt_down_rad: 0.35
+    battery_scale: 1.0
+    joint_states_rate: 5.0
+    # Ultrasonidos (orden del índice `sensor` de DRUltrasonic.measurement; validar en el lab)
+    sonar_names: [left, front_left, front, front_right, right]
+    sonar_frames: [sonar_left_frame, sonar_front_left_frame, sonar_front_frame, sonar_front_right_frame, sonar_right_frame]
+    sonar_min_range: 0.03
+    sonar_max_range: 4.0
+    sonar_fov: 0.5
+    # Cámara frontal (stream JPEG de d3_agent)
+    camera_enabled: true
+    camera_width: 640
+    camera_height: 400
+    camera_fps: 10
+    camera_quality: 70
+    camera_fx: 0.0
+    camera_hfov_deg: 100.0
+    # Micrófono (igual que converters.audio.* del original)
+    audio_enabled: true
+    audio_sample_rate: 16000
+    audio_channels: 1
+    language: English
+    tts_backend: auto
+
+d3_miscellaneous_node:
+  ros__parameters:
+    battery_period: 5.0
+    battery_scale: 1.0
+
+d3_navigation_node:
+  ros__parameters:
+    move_timeout_base: 5.0
+    move_timeout_per_meter: 6.0
+    auto_retract_kickstand: true
+
+d3_speech_node:
+  ros__parameters:
+    language: English
+    tts_backend: auto
+    sounds_dir: /workspace/sounds
+
+d3_interface_node:
+  ros__parameters:
+    video_server_port: 8080
+    pages_base_url: "http://127.0.0.1:8081"
+    input_timeout: 30.0
+    camera_topic: camera/front/image_raw
+
+d3_manipulation_node:
+  ros__parameters: {}
+
+d3_perception_node:
+  ros__parameters: {}

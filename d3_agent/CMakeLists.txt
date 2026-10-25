@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.8)
+project(d3_agent NONE)
+find_package(ament_cmake REQUIRED)
+install(PROGRAMS d3_agent.py DESTINATION lib/${PROJECT_NAME})
+install(DIRECTORY pages DESTINATION share/${PROJECT_NAME})
+ament_package()

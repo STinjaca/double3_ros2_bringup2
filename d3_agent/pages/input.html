@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrada</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0f1720; color: #f5f7fa;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { min-height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 4vh;
+    padding: 6vw; box-sizing: border-box; }
+  h1 { font-size: 6vw; margin: 0; text-align: center; }
+  input { font-size: 5vw; padding: 2vh 3vw; border-radius: 12px; border: 2px solid #3b82f6; }
+  .row { display: flex; flex-wrap: wrap; gap: 3vw; justify-content: center; }
+  button { font-size: 5vw; padding: 2.5vh 6vw; border: 0; border-radius: 14px; background: #3b82f6;
+    color: #fff; min-width: 30vw; }
+  button.no { background: #64748b; }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="prompt"></h1>
+  <div id="controls" class="row"></div>
+</main>
+<script>
+  // Equivalente a input_text/input_bool/input_list de Pepper.
+  // La respuesta se envía a d3_agent (POST /event), que la reenvía al nodo d3_interface_node.
+  var params = new URLSearchParams(location.search);
+  var type = params.get("type") || "text";
+  var content = params.get("content") || "";
+  var id = params.get("id") || "";
+  var prompt = document.getElementById("prompt");
+  var controls = document.getElementById("controls");
+  var sent = false;
+
+  function send(value) {
+    if (sent) { return; }
+    sent = true;
+    fetch("/event", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: "input", id: id, type: type, value: String(value) }) });
+    controls.innerHTML = "";
+    prompt.textContent = "✓";
+  }
+
+  function button(label, value, cls) {
+    var b = document.createElement("button");
+    b.textContent = label;
+    if (cls) { b.className = cls; }
+    b.onclick = function () { send(value); };
+    controls.appendChild(b);
+  }
+
+  if (type === "bool") {
+    prompt.textContent = content;
+    button("Sí", "true");
+    button("No", "false", "no");
+  } else if (type === "list") {
+    // Mismo formato que naoqi_interface: "a,b,c"
+    content.split(",").map(function (s) { return s.trim(); }).filter(Boolean)
+      .forEach(function (option) { button(option, option); });
+  } else {
+    prompt.textContent = content;
+    var input = document.createElement("input");
+    input.type = "text";
+    input.autofocus = true;
+    controls.appendChild(input);
+    button("Enviar", "");
+    controls.lastChild.onclick = function () { send(input.value); };
+    input.addEventListener("keydown", function (e) { if (e.key === "Enter") { send(input.value); } });
+  }
+</script>
+</body>
+</html>

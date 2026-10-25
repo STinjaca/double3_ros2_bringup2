@@ -1,0 +1,2 @@
+{"timestamp":"2026-10-24 00:00:00","class":"DRBase","key":"status","data":{"battery":64.0,"charging":false,"kickstand":2,"pole":0.5}}
+{"timestamp":"2026-10-24 00:00:00","class":"DRSystem","key":"systemInfo","data":{"simulated":true,"model":"Double 3 (fixture sintético)"}}

@@ -1,0 +1,26 @@
+# Instalar una vez: pip install pre-commit && pre-commit install
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=5120"]
+      - id: detect-private-key
+      - id: check-yaml
+        args: ["--unsafe"]
+  - repo: local
+    hooks:
+      - id: public-safety
+        name: public-safety (IPs, MACs, secretos)
+        entry: python3 tools/check_public_safety.py
+        language: system
+        pass_filenames: true
+      - id: no-raw-recordings
+        name: no subir grabaciones crudas del robot
+        entry: bash -c 'echo "Usa tools/sanitize_fixtures.py y sube solo d3_sim/fixtures/*.jsonl sanitizados"; exit 1'
+        language: system
+        files: '(^recordings/|\.raw\.jsonl$)'

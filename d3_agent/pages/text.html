@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Texto</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0f1720; color: #f5f7fa;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { height: 100%; display: flex; align-items: center; justify-content: center; padding: 6vw;
+    box-sizing: border-box; text-align: center; }
+  #words { font-size: 9vw; line-height: 1.2; font-weight: 600; word-break: break-word; }
+</style>
+</head>
+<body>
+<main><div id="words" aria-live="polite"></div></main>
+<script>
+  // Equivalente a show_words.html de Pepper: muestra el texto palabra por palabra.
+  var params = new URLSearchParams(location.search);
+  var text = params.get("text") || "";
+  var ms = parseInt(params.get("ms") || "350", 10);
+  var words = text.split(/\s+/).filter(Boolean);
+  var el = document.getElementById("words");
+  var shown = [];
+  var i = 0;
+  function step() {
+    if (i >= words.length) { return; }
+    shown.push(words[i++]);
+    el.textContent = shown.join(" ");
+    setTimeout(step, ms);
+  }
+  step();
+</script>
+</body>
+</html>

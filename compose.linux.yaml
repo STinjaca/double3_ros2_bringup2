@@ -1,0 +1,11 @@
+# Override para el PC Ubuntu 24.04 del laboratorio: red del host para que DDS llegue a la LAN
+# (otros equipos con el mismo ROS_DOMAIN_ID) y RViz por X11.
+services:
+  ros:
+    network_mode: host
+    ports: !reset []
+    environment:
+      - ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
+      - DISPLAY=${DISPLAY:-:0}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
