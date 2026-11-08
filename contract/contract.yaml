@@ -23,7 +23,7 @@ interfaces:
   - {name: cmd_vel, kind: sub, type: geometry_msgs/msg/Twist,
      naoqi: {node: naoqi_driver, api: ALMotion.move},
      d3: {node: d3_driver_node, impl: "navigate.drive (reenvío 5 Hz, watchdog 500 ms)", status: partial,
-          notes: "linear.y se ignora (base diferencial); m/s y rad/s se convierten a -1..1 con parámetros de calibración"}}
+          notes: "linear.y se ignora (base diferencial); m/s y rad/s se convierten a -1..1 con parámetros de calibración; a diferencia de ALMotion.move, se detiene si no llega cmd_vel en cmd_vel_timeout (0.5 s; 0 = velocidad retenida)"}}
   - {name: joint_trajectory, kind: sub, type: trajectory_msgs/msg/JointTrajectory,
      naoqi: {node: naoqi_driver, api: ALMotion.setAngles},
      d3: {node: d3_driver_node, impl: "base.pole.setTarget / tilt.target", status: partial,

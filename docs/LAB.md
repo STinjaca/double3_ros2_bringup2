@@ -131,13 +131,12 @@ d3_raw() {  # uso: d3_raw <segundos> <archivo_salida> '<json>' ['<json>' ...]
 
 La primera línea de la salida es la respuesta del handshake (`{"ok":true,...}`) y el resto son eventos.
 
-**Parada de emergencia** cuando el robot se mueve (pruebas 9 y 10). Con `cmd_vel_timeout: 0.0` (valor por
-defecto) el driver **retiene la última velocidad** y la reenvía cada 200 ms. Por eso, cortar
-`ros2 topic pub` con Ctrl-C **no detiene el robot** y `navigate.stop` queda pisado por el siguiente
-reenvío. Para detenerlo hay que publicar velocidad cero:
-`ros2 topic pub --once /d3/cmd_vel geometry_msgs/msg/Twist "{}"`. Mejor aún: para estas pruebas pon
-`cmd_vel_timeout: 0.5` en `d3_bringup2/config/d3.yaml` **antes** de `make robot` (el driver lee los
-parámetros solo al arrancar) y no subas ese cambio.
+**Parada de emergencia** cuando el robot se mueve (pruebas 9 y 10). Con `cmd_vel_timeout: 0.5` (valor por
+defecto) el driver deja de reenviar `navigate.drive` y detiene el robot si pasa medio segundo sin recibir
+`cmd_vel`. Por eso, cortar `ros2 topic pub` con Ctrl-C basta para detenerlo. Como respaldo, publica
+velocidad cero: `ros2 topic pub --once /d3/cmd_vel geometry_msgs/msg/Twist "{}"`. Si alguien cambió
+`cmd_vel_timeout` a `0` (velocidad retenida, como `ALMotion.move`), Ctrl-C **no** detiene el robot y solo
+sirve la velocidad cero.
 
 ### Prueba 1. Latencia de red con `agent.ping` (solo lectura)
 
@@ -321,7 +320,7 @@ parámetros solo al arrancar) y no subas ese cambio.
 - **Objetivo:** confirmar que la evasión del D3 se comporta igual con y sin la suscripción de la
   prueba 2.
 - **Cómo:** en un espacio libre, con una persona junto al robot lista para la parada de emergencia y
-  `cmd_vel_timeout: 0.5` configurado (ver "Preparación común"):
+  `cmd_vel_timeout` en su valor por defecto de 0.5 s (ver "Preparación común"):
   1. `ros2 service call /d3/go_to_posture naoqi_utilities_msgs/srv/GoToPosture "{posture_name: 'Stand'}"`
      y luego `ros2 service call /d3/enable_default_security std_srvs/srv/Trigger`.
   2. Pon una caja a 3 m al frente. Recorrido de referencia **sin** suscripción:

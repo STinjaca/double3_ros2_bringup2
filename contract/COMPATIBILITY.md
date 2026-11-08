@@ -22,7 +22,7 @@ Namespace por defecto: `/d3` (en el original: `/nao` o `/pepper`).
 
 | Interfaz | Tipo | NAOqi | D3 | Estado | Notas |
 |---|---|---|---|---|---|
-| `cmd_vel` (sub) | `geometry_msgs/msg/Twist` | ALMotion.move | navigate.drive (reenvío 5 Hz, watchdog 500 ms) | 🟡 partial | linear.y se ignora (base diferencial); m/s y rad/s se convierten a -1..1 con parámetros de calibración |
+| `cmd_vel` (sub) | `geometry_msgs/msg/Twist` | ALMotion.move | navigate.drive (reenvío 5 Hz, watchdog 500 ms) | 🟡 partial | linear.y se ignora (base diferencial); m/s y rad/s se convierten a -1..1 con parámetros de calibración; a diferencia de ALMotion.move, se detiene si no llega cmd_vel en cmd_vel_timeout (0.5 s; 0 = velocidad retenida) |
 | `joint_trajectory` (sub) | `trajectory_msgs/msg/JointTrajectory` | ALMotion.setAngles | base.pole.setTarget / tilt.target | 🟡 partial | joints pole_joint y head_tilt_joint; HeadPitch se acepta como alias del tilt; el resto se ignora |
 | `goal_pose` (sub) | `geometry_msgs/msg/PoseStamped` | ALMotion.moveTo | navigate.target (relative si frame base_footprint) | ✅ supported |  |
 | `speech` (sub) | `std_msgs/msg/String` | ALTextToSpeech.say | TTS en el host + reproducción en d3_agent | ✅ supported |  |

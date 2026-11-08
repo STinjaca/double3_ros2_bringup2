@@ -29,7 +29,7 @@ d3_driver_node:
     max_angular_speed: 1.6
     invert_turn: false
     drive_period: 0.2
-    cmd_vel_timeout: 0.0      # 0 = velocidad retenida como ALMotion.move; 0.5 recomendado para teleop
+    cmd_vel_timeout: 0.5      # s sin cmd_vel -> se detiene; 0 = velocidad retenida como ALMotion.move
     auto_retract_kickstand: true
     # Frames
     odom_frame: odom

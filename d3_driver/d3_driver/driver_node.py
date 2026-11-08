@@ -47,7 +47,7 @@ class D3Driver(D3Node):
         p("max_angular_speed", 1.6)      # rad/s que equivalen a turn=1
         p("invert_turn", False)
         p("drive_period", 0.2)           # reenvío de navigate.drive (watchdog del D3: 500 ms)
-        p("cmd_vel_timeout", 0.0)        # 0 = velocidad retenida como ALMotion.move (contrato NAOqi)
+        p("cmd_vel_timeout", 0.5)        # s sin cmd_vel -> se detiene; 0 = retenida como ALMotion.move (NAOqi)
         p("auto_retract_kickstand", True)
         # Frames
         p("odom_frame", "odom")
@@ -181,6 +181,7 @@ class D3Driver(D3Node):
                        period=self.params["drive_period"])
 
     def stop_driving(self):
+        """Deja de reenviar navigate.drive y manda una sola vez throttle=0, turn=0."""
         if self.d3.stop_repeat("drive") or self.driving:
             self.d3.send("navigate.drive", {"throttle": 0.0, "turn": 0.0})
         self.driving = False
