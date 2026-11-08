@@ -61,7 +61,7 @@ interfaces:
   - {name: camera/depth/image_raw, kind: pub, type: sensor_msgs/msg/Image,
      naoqi: {node: naoqi_driver, api: ALVideoDevice kDepthCamera},
      d3: {node: d3_driver_node, impl: "RealSense D430 frontal (depth.front)", status: planned,
-          notes: "usar la RealSense en crudo deja al D3 sin evasión de obstáculos"}}
+          notes: "No verificado: leer el sensor frontal en crudo o cambiar depth.* podría afectar la evasión de obstáculos; no hay forma conocida de restaurar la configuración del robot. Consultar a Double (devteam@doublerobotics.com) antes de cambiar configuración."}}
   - {name: camera/stereo/image_raw, kind: pub, type: sensor_msgs/msg/Image,
      naoqi: {node: naoqi_driver, api: ALVideoDevice}, d3: {node: "-", impl: "-", status: unsupported}}
   - {name: camera/ir/image_raw, kind: pub, type: sensor_msgs/msg/Image,

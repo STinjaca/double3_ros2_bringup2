@@ -34,7 +34,7 @@ Namespace por defecto: `/d3` (en el original: `/nao` o `/pepper`).
 | `camera/front/image_raw` (pub) | `sensor_msgs/msg/Image` | ALVideoDevice kTopCamera | camera.enable v4l2 -> /dev/video9 -> stream JPEG del agente | ✅ supported |  |
 | `camera/front/camera_info` (pub) | `sensor_msgs/msg/CameraInfo` | ALVideoDevice | intrínsecos por parámetro (calibrar en el lab) | 🟡 partial |  |
 | `camera/bottom/image_raw` (pub) | `sensor_msgs/msg/Image` | ALVideoDevice kBottomCamera | - | ⛔ unsupported | el D3 no tiene cámara inferior equivalente |
-| `camera/depth/image_raw` (pub) | `sensor_msgs/msg/Image` | ALVideoDevice kDepthCamera | RealSense D430 frontal (depth.front) | 🕓 planned | usar la RealSense en crudo deja al D3 sin evasión de obstáculos |
+| `camera/depth/image_raw` (pub) | `sensor_msgs/msg/Image` | ALVideoDevice kDepthCamera | RealSense D430 frontal (depth.front) | 🕓 planned | No verificado: leer el sensor frontal en crudo o cambiar depth.* podría afectar la evasión de obstáculos; no hay forma conocida de restaurar la configuración del robot. Consultar a Double (devteam@doublerobotics.com) antes de cambiar configuración. |
 | `camera/stereo/image_raw` (pub) | `sensor_msgs/msg/Image` | ALVideoDevice | - | ⛔ unsupported |  |
 | `camera/ir/image_raw` (pub) | `sensor_msgs/msg/Image` | ALVideoDevice | - | ⛔ unsupported |  |
 | `imu/torso` (pub) | `sensor_msgs/msg/Imu` | ALMemory InertialSensor | DRIMU.imu (IMU de la cabeza) | 🟡 partial | solo orientación; sin velocidad angular ni aceleración |
