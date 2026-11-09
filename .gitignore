@@ -8,6 +8,14 @@ id_rsa*
 id_ed25519*
 secrets/
 
+# --- Mapas de un sitio real (map_server / slam_toolbox): van en el repo del despliegue ---
+*.pgm
+*.posegraph
+maps/
+**/maps/*.yaml
+*_map.yaml
+map.yaml
+
 # --- Grabaciones crudas del robot (pueden tener red, ubicación y seriales) ---
 recordings/
 *.raw.jsonl
