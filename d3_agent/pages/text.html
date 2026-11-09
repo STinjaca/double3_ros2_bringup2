@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Texto</title>
+<title>Text</title>
 <style>
   html, body { margin: 0; height: 100%; background: #0f1720; color: #f5f7fa;
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -19,6 +19,7 @@
   var params = new URLSearchParams(location.search);
   var text = params.get("text") || "";
   var ms = parseInt(params.get("ms") || "350", 10);
+  document.documentElement.lang = params.get("lang") || "en";
   var words = text.split(/\s+/).filter(Boolean);
   var el = document.getElementById("words");
   var shown = [];

@@ -86,6 +86,7 @@ d3_interface_node:
     video_server_port: 8080
     pages_base_url: "http://127.0.0.1:8081"
     input_timeout: 30.0
+    language: English          # textos fijos de las páginas (Sí/No, Enviar): English, Spanish o código ISO
     camera_topic: camera/front/image_raw
 
 d3_manipulation_node:
