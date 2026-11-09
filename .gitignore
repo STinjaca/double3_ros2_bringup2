@@ -7,6 +7,8 @@
 id_rsa*
 id_ed25519*
 secrets/
+# Reglas extra de tools/check_public_safety.py (rangos y términos de tu despliegue)
+.public_safety.local
 
 # --- Mapas de un sitio real (map_server / slam_toolbox): van en el repo del despliegue ---
 *.pgm
