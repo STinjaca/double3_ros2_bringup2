@@ -14,6 +14,23 @@ ROS 2 del host y la API local del robot (`/tmp/doubleapi`).
 Además sirve `pages/` en `127.0.0.1:8081` para `show_text` y `get_input` en la pantalla. La página
 `input.html` devuelve la respuesta con `POST /event` y el agente la reenvía como evento `DRAgent.input`.
 
+## Parada segura al perder el control (comportamiento por defecto)
+
+Si se cierra una conexión `control` que mandó comandos de movimiento (`navigate.drive`, `navigate.target`,
+`base.turnBy`), el agente envía `navigate.cancelTarget` y `navigate.drive` en cero, y avisa a los demás
+clientes con el evento `DRAgent.safeStop`. Las conexiones que solo observan no detienen al robot al cerrarse.
+
+- `navigate.drive` ya se detiene solo por el watchdog de 500 ms del D3. El caso que cubre esta parada es
+  `navigate.target` (`move_to`, `navigate_to`), que el robot sigue ejecutando por su cuenta.
+- Una caída de Wi-Fi no cierra el socket por sí sola. Por eso el agente activa keepalive y
+  `TCP_USER_TIMEOUT` en las conexiones `control` y da el enlace por muerto en `--link-timeout`
+  segundos (por defecto 3; variable `D3_LINK_TIMEOUT`).
+
+Seguir moviéndose sin el host **no** es nunca el comportamiento implícito. Una futura "ruta a bordo"
+(por ejemplo, terminar el tramo actual si se cae la red) será un modo explícito que el cliente activa por
+comando, con su propia política de parada. Qué hacer en un despliegue concreto (dónde parar, qué decir) se
+define en el repo de ese despliegue, no aquí.
+
 El protocolo está documentado en [`d3_sdk_client/protocol.py`](../d3_sdk_client/d3_sdk_client/protocol.py).
 
 ```bash
