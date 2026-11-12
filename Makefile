@@ -46,7 +46,7 @@ check: up
 	$(EXEC) "python3 src/double3_ros2_bringup2/contract/check_contract.py --namespace $(NS)"
 
 test: up
-	$(EXEC) "cd src/double3_ros2_bringup2 && python3 -m pytest -q d3_sdk_client/test d3_driver/test"
+	$(EXEC) "cd src/double3_ros2_bringup2 && python3 -m pytest -q d3_sdk_client/test d3_driver/test d3_agent/test d3_capabilities/test tools/test_check_public_safety.py"
 
 graph:
 	python3 tools/codegraph/extract.py && python3 contract/gen_compat.py

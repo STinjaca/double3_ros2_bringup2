@@ -20,6 +20,17 @@ from d3_sdk_client.ros_base import D3Node
 
 # ms por palabra según el idioma (como show_words.html de Pepper)
 WORD_MS = {"english": 330, "spanish": 380}
+# Nombre de idioma estilo NAOqi ("English", "Spanish") -> código que entienden las páginas de d3_agent.
+LANG_CODES = {"english": "en", "spanish": "es", "español": "es"}
+
+
+def page_lang(language):
+    """Código de idioma para las páginas (?lang=). Acepta "Spanish", "es" o "es-CO"; si no, inglés."""
+    name = (language or "").strip().lower()
+    if name in LANG_CODES:
+        return LANG_CODES[name]
+    code = name.split("-")[0].split("_")[0]
+    return code if len(code) == 2 and code.isalpha() else "en"
 
 
 def detect_host_ip():
@@ -41,6 +52,9 @@ class D3Interface(D3Node):
         self.declare_parameter("pages_base_url", "http://127.0.0.1:8081")
         self.declare_parameter("input_timeout", 30.0)
         self.declare_parameter("camera_topic", "camera/front/image_raw")
+        # Idioma de los textos fijos de las páginas (botones Sí/No, Enviar). Se lee en cada llamada,
+        # así que `ros2 param set` lo cambia sin reiniciar.
+        self.declare_parameter("language", "English")
         self.video_base = "http://%s:%d" % (self.get_parameter("video_server_ip").value,
                                             self.get_parameter("video_server_port").value)
         self.pages = self.get_parameter("pages_base_url").value.rstrip("/")
@@ -76,9 +90,14 @@ class D3Interface(D3Node):
         url = "%s/stream?topic=%s" % (self.video_base, quote(self._absolute_topic(request.url), safe="/"))
         return self.open_url(response, url, "showing topic stream %s" % request.url)
 
+    def _language(self, override=""):
+        return override or self.get_parameter("language").value
+
     def show_text(self, request, response):
-        ms = WORD_MS.get((request.language or "english").lower(), 350)
-        url = "%s/text.html?%s" % (self.pages, urlencode({"text": request.text, "ms": ms}))
+        language = self._language(request.language)
+        ms = WORD_MS.get(language.lower(), 350)
+        url = "%s/text.html?%s" % (self.pages, urlencode({"text": request.text, "ms": ms,
+                                                           "lang": page_lang(language)}))
         return self.open_url(response, url, "showing text")
 
     def get_input(self, request, response):
@@ -87,7 +106,8 @@ class D3Interface(D3Node):
             return response
         request_id = uuid.uuid4().hex[:12]
         url = "%s/input.html?%s" % (self.pages, urlencode({"type": request.type, "content": request.content,
-                                                            "id": request_id}))
+                                                            "id": request_id,
+                                                            "lang": page_lang(self._language())}))
         if not self.d3.send("gui.accessoryWebView.open", {"url": url, "trusted": False}):
             response.input = "ERROR"
             return response

@@ -8,6 +8,13 @@ Rechaza:
   - Asignaciones literales de contraseñas/tokens
 Permitido: 127.0.0.1, 0.0.0.0, 192.0.2.0/24 (RFC 5737), y líneas marcadas con `public-safe`.
 
+Rangos y términos extra (los de tu despliegue, que no deben publicarse ni siquiera como lista de bloqueo)
+se leen de un archivo local NO versionado: `.public_safety.local` en la raíz del repo, o la ruta de la
+variable de entorno PUBLIC_SAFETY_LOCAL. Una entrada por línea; `#` comenta:
+    net: 198.51.100.0/24      rango de red bloqueado
+    term: nombre-del-sitio    término bloqueado (sin distinguir mayúsculas; también en rutas de archivo)
+Las reglas locales NO se pueden saltar con `public-safe` y también se aplican a los .svg.
+
 Uso: python3 tools/check_public_safety.py [archivos...]
 """
 import ipaddress
@@ -28,6 +35,40 @@ SECRET_QUOTED_RE = re.compile(SECRET_KEYS + r"""\s*[:=]\s*(["'])(?!changeme|<|\$
 SECRET_BARE_RE = re.compile(SECRET_KEYS + r"""\s*[:=]\s*(?!changeme|<|\$|\{|none\b|null\b|true\b|false\b)[^\s"'#().$]{6,}\s*(#.*)?$""")
 CONFIG_SUFFIX = (".yaml", ".yml", ".sh", ".service", ".toml", ".ini", ".cfg", ".conf")
 SKIP_SUFFIX = (".svg",)
+LOCAL_FILE = ".public_safety.local"
+
+
+def repo_root():
+    try:
+        out = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, check=True)
+        return out.stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return os.getcwd()
+
+
+def load_local_rules(path=None):
+    """Devuelve (redes, términos) del archivo local. Si no existe, listas vacías."""
+    path = path or os.environ.get("PUBLIC_SAFETY_LOCAL") or os.path.join(repo_root(), LOCAL_FILE)
+    nets, terms = [], []
+    if not os.path.isfile(path):
+        return nets, terms
+    with open(path, encoding="utf-8") as fh:
+        for lineno, raw in enumerate(fh, 1):
+            line = raw.split("#", 1)[0].strip()
+            if not line:
+                continue
+            kind, _, value = line.partition(":")
+            kind, value = kind.strip().lower(), value.strip()
+            if kind == "net" and value:
+                try:
+                    nets.append(ipaddress.ip_network(value, strict=False))
+                except ValueError:
+                    sys.exit("%s:%d: rango inválido %r" % (path, lineno, value))
+            elif kind == "term" and value:
+                terms.append(value.lower())
+            else:
+                sys.exit("%s:%d: se esperaba 'net: <CIDR>' o 'term: <texto>'" % (path, lineno))
+    return nets, terms
 
 
 def staged_files():
@@ -36,27 +77,46 @@ def staged_files():
     return [f for f in out.splitlines() if f]
 
 
-def check_file(path):
+def iter_ips(line):
+    for match in IP_RE.finditer(line):
+        try:
+            yield ipaddress.ip_address(match.group(1))
+        except ValueError:
+            continue
+
+
+def check_file(path, extra_nets=(), extra_terms=()):
     problems = []
     if not os.path.isfile(path):
         return problems
+    if os.path.basename(path) == LOCAL_FILE:
+        return ["el archivo local de reglas no se versiona (está en .gitignore)"]
+    lowered_path = path.lower()
+    for term in extra_terms:
+        if term in lowered_path:
+            problems.append("ruta: término bloqueado por %s" % LOCAL_FILE)
     if os.path.getsize(path) > MAX_BYTES:
-        return ["archivo de más de 5 MB"]
-    if path.endswith(SKIP_SUFFIX) or path.endswith("check_public_safety.py"):
-        return problems
+        return problems + ["archivo de más de 5 MB"]
+    # Las reglas por defecto se saltan en algunos archivos; las reglas locales se aplican a todo lo legible
+    # (un .svg puede ser un plano con nombres del sitio).
+    skip_default = path.endswith(SKIP_SUFFIX) or path.endswith("check_public_safety.py")
     try:
         with open(path, encoding="utf-8") as fh:
             lines = fh.readlines()
     except (UnicodeDecodeError, OSError):
         return problems
     for lineno, line in enumerate(lines, 1):
-        if "public-safe" in line:
+        # Reglas locales: no se saltan con `public-safe` y no repiten el valor bloqueado en el mensaje.
+        lowered = line.lower()
+        for term in extra_terms:
+            if term in lowered:
+                problems.append("línea %d: término bloqueado por %s" % (lineno, LOCAL_FILE))
+        for ip in iter_ips(line):
+            if any(ip in net for net in extra_nets):
+                problems.append("línea %d: IP de un rango bloqueado por %s" % (lineno, LOCAL_FILE))
+        if skip_default or "public-safe" in line:
             continue
-        for match in IP_RE.finditer(line):
-            try:
-                ip = ipaddress.ip_address(match.group(1))
-            except ValueError:
-                continue
+        for ip in iter_ips(line):
             if any(ip in net for net in BLOCKED_NETS):
                 problems.append("línea %d: IP de red privada/institucional %s" % (lineno, ip))
         if MAC_RE.search(line):
@@ -70,9 +130,10 @@ def check_file(path):
 
 def main(argv):
     files = argv or staged_files()
+    extra_nets, extra_terms = load_local_rules()
     failed = False
     for path in files:
-        for problem in check_file(path):
+        for problem in check_file(path, extra_nets, extra_terms):
             failed = True
             print("%s: %s" % (path, problem))
     if failed:

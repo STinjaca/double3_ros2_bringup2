@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Entrada</title>
+<title>Input</title>
 <style>
   html, body { margin: 0; height: 100%; background: #0f1720; color: #f5f7fa;
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -29,6 +29,16 @@
   var type = params.get("type") || "text";
   var content = params.get("content") || "";
   var id = params.get("id") || "";
+  // Textos fijos según ?lang= (lo pone d3_interface_node desde su parámetro `language`).
+  var LABELS = {
+    en: { title: "Input", yes: "Yes", no: "No", send: "Send" },
+    es: { title: "Entrada", yes: "Sí", no: "No", send: "Enviar" }
+  };
+  var lang = (params.get("lang") || "en").toLowerCase();
+  if (!LABELS[lang]) { lang = "en"; }
+  var t = LABELS[lang];
+  document.documentElement.lang = lang;
+  document.title = t.title;
   var prompt = document.getElementById("prompt");
   var controls = document.getElementById("controls");
   var sent = false;
@@ -52,8 +62,8 @@
 
   if (type === "bool") {
     prompt.textContent = content;
-    button("Sí", "true");
-    button("No", "false", "no");
+    button(t.yes, "true");
+    button(t.no, "false", "no");
   } else if (type === "list") {
     // Mismo formato que naoqi_interface: "a,b,c"
     content.split(",").map(function (s) { return s.trim(); }).filter(Boolean)
@@ -64,7 +74,7 @@
     input.type = "text";
     input.autofocus = true;
     controls.appendChild(input);
-    button("Enviar", "");
+    button(t.send, "");
     controls.lastChild.onclick = function () { send(input.value); };
     input.addEventListener("keydown", function (e) { if (e.key === "Enter") { send(input.value); } });
   }

@@ -9,6 +9,11 @@ que el host ROS 2 usa para:
   - play:    reproducir WAV/URL en el parlante (aplay / GStreamer).
 También sirve las páginas de pantalla (show_text, get_input) en 127.0.0.1 para el accessoryWebView.
 
+Parada segura por defecto: si se cierra (o se da por muerta) una conexión de control que mandó comandos de
+movimiento, el agente cancela navigate.target y detiene navigate.drive. Que el robot siga moviéndose sin el
+host no es nunca el comportamiento implícito; si algún día se necesita (p. ej. terminar el tramo actual de
+una ruta a bordo), será un modo explícito que el cliente activa por comando.
+
 Protocolo: ver d3_sdk_client/protocol.py. Uso típico en el robot:
     D3_TOKEN=... python3 d3_agent.py
 En simulación (d3_sim) se usan los comandos de prueba: --profile sim
@@ -63,6 +68,38 @@ PROFILES = {
 }
 
 
+# Comandos que ponen al robot en movimiento: la conexión que los manda "es dueña" del movimiento.
+MOTION_COMMANDS = frozenset(("navigate.drive", "navigate.target", "base.turnBy"))
+# Lo que se manda a la API cuando esa conexión se pierde.
+SAFE_STOP_COMMANDS = (
+    {"c": "navigate.cancelTarget"},
+    {"c": "navigate.drive", "d": {"throttle": 0.0, "turn": 0.0}},
+)
+
+
+def configure_link_timeout(sock, timeout):
+    """Detecta enlaces muertos (Wi-Fi caído, host apagado) en ~timeout s en vez de minutos.
+
+    Sin esto una caída de red no cierra el socket: TCP sigue reintentando y la parada segura no se dispara.
+    TCP_USER_TIMEOUT cubre el caso con datos pendientes (el agente envía pose/IMU todo el tiempo) y el
+    keepalive cubre el caso inactivo. Las constantes que el SO no tenga se omiten.
+    """
+    if timeout <= 0:
+        return
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+    interval = max(1, int(round(timeout / 3.0)))
+    for name, value in (("TCP_KEEPIDLE", interval), ("TCP_KEEPALIVE", interval),  # TCP_KEEPALIVE: macOS
+                        ("TCP_KEEPINTVL", interval), ("TCP_KEEPCNT", 3),
+                        ("TCP_USER_TIMEOUT", int(timeout * 1000))):
+        option = getattr(socket, name, None)
+        if option is None:
+            continue
+        try:
+            sock.setsockopt(socket.IPPROTO_TCP, option, value)
+        except OSError:
+            pass
+
+
 def encode_line(obj):
     return (json.dumps(obj, separators=(",", ":")) + "\n").encode("utf-8")
 
@@ -110,6 +147,7 @@ class Agent(object):
             profile["enable_camera"] = False
         self.profile = profile
         self.control_clients = set()
+        self.motion_clients = set()   # conexiones de control que mandaron comandos de movimiento
         self.clients_lock = threading.Lock()
         self.players = set()
         self.players_lock = threading.Lock()
@@ -200,6 +238,7 @@ class Agent(object):
         except OSError as exc:
             sock.sendall(encode_line({"ok": False, "error": "API del D3 no disponible: %s" % exc}))
             return
+        configure_link_timeout(sock, self.args.link_timeout)
         sock.sendall(encode_line({"ok": True, "version": VERSION, "profile": self.args.profile}))
         with self.clients_lock:
             self.control_clients.add(sock)
@@ -239,7 +278,22 @@ class Agent(object):
         finally:
             with self.clients_lock:
                 self.control_clients.discard(sock)
+                owned_motion = sock in self.motion_clients
+                self.motion_clients.discard(sock)
+            if owned_motion:
+                self.safe_stop(api)
             api.close()
+
+    def safe_stop(self, api):
+        """Comportamiento seguro por defecto al perder la conexión de control que movía al robot."""
+        LOG.warning("se perdió la conexión de control que movía al robot: cancelo navegación y detengo")
+        payload = b"".join(encode_line(msg) for msg in SAFE_STOP_COMMANDS)
+        try:
+            api.sendall(payload)
+        except OSError:
+            for msg in SAFE_STOP_COMMANDS:   # la conexión del cliente con la API también cayó
+                self.api_command(msg["c"], msg.get("d"))
+        self.broadcast(make_event("safeStop", {"reason": "control connection lost"}))
 
     def control_line(self, line, api, sock):
         try:
@@ -248,6 +302,9 @@ class Agent(object):
             return
         command = msg.get("c", "")
         if not command.startswith("agent."):
+            if command in MOTION_COMMANDS:
+                with self.clients_lock:
+                    self.motion_clients.add(sock)
             api.sendall(line + b"\n")
             return
         if command == "agent.ping":
@@ -444,6 +501,9 @@ def parse_args(argv=None):
     parser.add_argument("--pages-listen", default="127.0.0.1")
     parser.add_argument("--pages-dir", default=os.path.join(HERE, "pages"))
     parser.add_argument("--max-play-bytes", type=int, default=20 * 1024 * 1024)
+    parser.add_argument("--link-timeout", type=float, default=float(os.environ.get("D3_LINK_TIMEOUT", 3.0)),
+                        help="segundos para dar por muerto un enlace de control sin respuesta (0 = usar los "
+                             "tiempos del SO, que pueden ser minutos)")
     parser.add_argument("--record", help="guarda todos los eventos recibidos (JSONL crudo, NO subir al repo)")
     parser.add_argument("--allow-insecure-token", action="store_true", help="solo para simulación local")
     parser.add_argument("-v", "--verbose", action="store_true")
