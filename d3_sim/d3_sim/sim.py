@@ -69,7 +69,7 @@ class D3Simulator:
         self.target = None
         self.pole = 0.0
         self.pole_target = None
-        self.kickstand = 1      # ASSUMED: 1 desplegado, 2 retraído (como en tas-art)
+        self.kickstand = 1      # ASSUMED: 1 desplegado, 2 retraído
         self.tilt = 0.5
         self.tilt_target = None
         self.tilt_speed = 0.0
