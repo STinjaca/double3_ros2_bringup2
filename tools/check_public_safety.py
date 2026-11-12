@@ -13,7 +13,7 @@ se leen de un archivo local NO versionado: `.public_safety.local` en la raíz de
 variable de entorno PUBLIC_SAFETY_LOCAL. Una entrada por línea; `#` comenta:
     net: 198.51.100.0/24      rango de red bloqueado
     term: nombre-del-sitio    término bloqueado (sin distinguir mayúsculas; también en rutas de archivo)
-Los términos extra NO se pueden saltar con `public-safe`.
+Las reglas locales NO se pueden saltar con `public-safe` y también se aplican a los .svg.
 
 Uso: python3 tools/check_public_safety.py [archivos...]
 """
@@ -77,6 +77,14 @@ def staged_files():
     return [f for f in out.splitlines() if f]
 
 
+def iter_ips(line):
+    for match in IP_RE.finditer(line):
+        try:
+            yield ipaddress.ip_address(match.group(1))
+        except ValueError:
+            continue
+
+
 def check_file(path, extra_nets=(), extra_terms=()):
     problems = []
     if not os.path.isfile(path):
@@ -88,28 +96,28 @@ def check_file(path, extra_nets=(), extra_terms=()):
         if term in lowered_path:
             problems.append("ruta: término bloqueado por %s" % LOCAL_FILE)
     if os.path.getsize(path) > MAX_BYTES:
-        return ["archivo de más de 5 MB"]
-    if path.endswith(SKIP_SUFFIX) or path.endswith("check_public_safety.py"):
-        return problems
+        return problems + ["archivo de más de 5 MB"]
+    # Las reglas por defecto se saltan en algunos archivos; las reglas locales se aplican a todo lo legible
+    # (un .svg puede ser un plano con nombres del sitio).
+    skip_default = path.endswith(SKIP_SUFFIX) or path.endswith("check_public_safety.py")
     try:
         with open(path, encoding="utf-8") as fh:
             lines = fh.readlines()
     except (UnicodeDecodeError, OSError):
         return problems
-    blocked_nets = BLOCKED_NETS + list(extra_nets)
     for lineno, line in enumerate(lines, 1):
+        # Reglas locales: no se saltan con `public-safe` y no repiten el valor bloqueado en el mensaje.
         lowered = line.lower()
         for term in extra_terms:
             if term in lowered:
                 problems.append("línea %d: término bloqueado por %s" % (lineno, LOCAL_FILE))
-        if "public-safe" in line:
+        for ip in iter_ips(line):
+            if any(ip in net for net in extra_nets):
+                problems.append("línea %d: IP de un rango bloqueado por %s" % (lineno, LOCAL_FILE))
+        if skip_default or "public-safe" in line:
             continue
-        for match in IP_RE.finditer(line):
-            try:
-                ip = ipaddress.ip_address(match.group(1))
-            except ValueError:
-                continue
-            if any(ip in net for net in blocked_nets):
+        for ip in iter_ips(line):
+            if any(ip in net for net in BLOCKED_NETS):
                 problems.append("línea %d: IP de red privada/institucional %s" % (lineno, ip))
         if MAC_RE.search(line):
             problems.append("línea %d: dirección MAC" % lineno)

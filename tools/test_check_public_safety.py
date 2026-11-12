@@ -35,7 +35,7 @@ def test_extra_net_and_term_are_blocked(tmp_path, rules):
     nets, terms = rules
     f = write(tmp_path / "a.md", "host 198.51.100.7\nvisita al SITIO-SECRETO\nnada\n")
     problems = cps.check_file(f, nets, terms)
-    assert any("línea 1" in p and "198.51.100.7" in p for p in problems)
+    assert any("línea 1" in p and "rango bloqueado" in p for p in problems)
     assert any("línea 2" in p and "término" in p for p in problems)
     assert not any("línea 3" in p for p in problems)
 
@@ -74,3 +74,21 @@ def test_invalid_line_fails_loudly(tmp_path, monkeypatch):
 def test_default_rules_still_apply_without_local_file(tmp_path):
     f = write(tmp_path / "d.md", "ip 10.1.2.3\n")  # public-safe: IP de prueba, se escribe en un temporal
     assert cps.check_file(f)
+
+
+def test_extra_nets_cannot_be_skipped_with_public_safe(tmp_path, rules):
+    nets, terms = rules
+    f = write(tmp_path / "e.yaml", "host: 198.51.100.7  # public-safe\n")
+    problems = cps.check_file(f, nets, terms)
+    assert problems and all("198.51.100.7" not in p for p in problems)
+
+
+def test_local_rules_apply_to_svg(tmp_path, rules):
+    nets, terms = rules
+    f = write(tmp_path / "plano.svg", "<svg><text>Sitio-Secreto ala norte</text></svg>\n")
+    assert cps.check_file(f, nets, terms)
+
+
+def test_svg_still_skips_default_rules(tmp_path):
+    f = write(tmp_path / "g.svg", "<svg><text>10.1.2.3</text></svg>\n")  # public-safe: IP de prueba en un temporal
+    assert cps.check_file(f) == []
